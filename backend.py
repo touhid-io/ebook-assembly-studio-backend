@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 # --- HTML Template (CSS & Structure) ---
-# NOTE: Adjusted CSS to fix margin issues and layout breaks on Render (Linux).
+# NOTE: Updated CSS with aggressive margin resets and Linux-specific font names.
 html_template_str = """
 <!DOCTYPE html>
 <html lang="bn">
@@ -22,22 +22,32 @@ html_template_str = """
     <meta charset="UTF-8">
     <title>Ebook Template</title>
     <style>
-        /* CRITICAL FIX: Resetting WeasyPrint default page margins to 0 */
+        /* FIX 1: @page MUST have 0 margin to prevent offset */
         @page {
             size: A4;
+            margin: 0mm;
+            padding: 0mm;
+        }
+        
+        /* FIX 2: Reset HTML/Body to match A4 size exactly */
+        html, body {
             margin: 0;
             padding: 0;
+            width: 210mm;
+            height: 297mm;
+            background-color: #2d3142; /* Background fallback */
         }
         
         :root {
             --primary-color: #1a1a2e; --accent-color: #e94560; --premium-gold: #d4af37; --secondary-dark: #16213e;
             --paper-white: #fffef9; --cream: #faf8f3; --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-muted: #707070; --text-light: #ffffff;
             
-            /* Linux Server Fonts */
-            --font-display: 'Liberation Serif', serif; 
-            --font-serif: 'Liberation Serif', serif;
-            --font-bengali: 'Noto Sans Bengali', 'Noto Sans Bengali UI', sans-serif;
-            --font-sans: 'Liberation Sans', sans-serif;
+            /* FIX 3: Expanded Font Stack for Linux (Render) Compatibility */
+            /* We include 'Lohit Bengali', 'Mukti Narrow', 'Siyam Rupali' which are common in Linux packages */
+            --font-display: 'Liberation Serif', 'DejaVu Serif', serif; 
+            --font-serif: 'Liberation Serif', 'DejaVu Serif', serif;
+            --font-bengali: 'Noto Sans Bengali', 'Lohit Bengali', 'Mukti Narrow', 'Vrinda', 'Kalpurush', sans-serif;
+            --font-sans: 'Liberation Sans', 'DejaVu Sans', sans-serif;
 
             --space-1: 6px; --space-2: 12px; --space-3: 18px; --space-4: 24px; --space-5: 36px; --space-6: 48px;
             --safe-margin: 15mm;
@@ -45,21 +55,15 @@ html_template_str = """
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         
-        body { 
-            font-family: var(--font-bengali); 
-            margin: 0; 
-            padding: 0; 
-            background: #2d3142; 
-        }
-        
-        /* Ensures each section takes exactly one A4 page without spillover */
+        /* FIX 4: Explicit Page Sizing with Overflow Hidden */
         .page { 
             width: 210mm; 
             height: 297mm; 
             background: var(--paper-white); 
             position: relative; 
-            overflow: hidden; 
+            overflow: hidden; /* Stops content from spilling to next page */
             page-break-after: always; 
+            page-break-inside: avoid;
         }
         
         /* ----- FRONT COVER FIXES ----- */
@@ -68,7 +72,7 @@ html_template_str = """
             display: flex; 
             flex-direction: column; 
             justify-content: space-between; 
-            /* Border calculation fix */
+            /* Border stays INSIDE the 210x297 box */
             border: 3mm solid var(--primary-color); 
             outline: 2px solid var(--premium-gold); 
             outline-offset: -10px; 
@@ -83,7 +87,10 @@ html_template_str = """
         .decorative-icon { width: 60px; height: auto; margin-bottom: var(--space-3); opacity: 0.7; }
         
         .book-title-en { font-family: var(--font-display); font-size: 64px; font-weight: 700; line-height: 0.9; color: var(--primary-color); letter-spacing: -1px; text-transform: uppercase; margin: 0; }
+        
+        /* Bengali Title Font Application */
         .book-title-bn { font-family: var(--font-bengali); font-size: 32px; font-weight: 700; color: var(--accent-color); margin-top: var(--space-3); display: inline-block; padding: 0 var(--space-4); position: relative; }
+        
         .book-title-bn::before, .book-title-bn::after { content: ''; position: absolute; top: 50%; width: 35px; height: 2px; background: var(--accent-color); }
         .book-title-bn::before { right: 100%; margin-right: 12px; } .book-title-bn::after { left: 100%; margin-left: 12px; }
         
@@ -312,7 +319,10 @@ def generate_book():
         chapter_count = int(form_data.get('chapter_count', 0))
         toc_data = []
         uploaded_pdfs = []
-        # Index usually starts after Cover (1) + Copyright (1) + TOC (1) = Page 4
+        # Index starts after Front Matter.
+        # Front Cover (1) + Copyright (1) + Index (1) + Back Cover (1) = 4 Template Pages.
+        # But PDF logic adds chapters between Index and Back Cover.
+        # So Chapters start at Page 4.
         current_page_counter = 4 
 
         for i in range(chapter_count):
@@ -354,9 +364,8 @@ def generate_book():
         }
         merger.add_metadata(metadata)
 
-        # Add Front Matter (Front Cover, Copyright, Index)
-        # We assume they are the first 3 pages.
-        # Since we fixed CSS margins, each section should take exactly 1 page.
+        # Add Front Matter (Cover, Copyright, Index)
+        # We take the first 3 pages of the generated template.
         pages_to_add_front = min(3, total_template_pages)
         for i in range(pages_to_add_front):
             merger.add_page(template_reader.pages[i])
@@ -370,12 +379,10 @@ def generate_book():
                 merger.add_page(page)
 
         # Add Back Cover
-        # If CSS is correct, the template should have 4 pages (Cover, Copy, Index, Back).
-        # We want the LAST page of the generated template as the back cover.
+        # We take the LAST page of the generated template.
         if total_template_pages >= 4:
             merger.add_page(template_reader.pages[total_template_pages - 1])
         elif total_template_pages > pages_to_add_front:
-             # Fallback: if somehow it's less than 4 but more than front matter
              merger.add_page(template_reader.pages[-1])
 
         # 5. Return Output
