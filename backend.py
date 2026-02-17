@@ -10,21 +10,28 @@ from pypdf import PdfWriter, PdfReader
 
 # --- Configuration Section ---
 app = Flask(__name__)
-CORS(app)  # Enable CORS to allow requests from the frontend
+# CORS is enabled to allow the frontend to communicate with this backend.
+CORS(app)
 
 # --- HTML Template (CSS & Structure) ---
+# NOTE: Google Fonts link removed. Using system fonts installed via Dockerfile.
 html_template_str = """
 <!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
     <title>Ebook Template</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Crimson+Pro:wght@400;600;700&family=Noto+Serif+Bengali:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #1a1a2e; --accent-color: #e94560; --premium-gold: #d4af37; --secondary-dark: #16213e;
             --paper-white: #fffef9; --cream: #faf8f3; --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-muted: #707070; --text-light: #ffffff;
-            --font-display: 'Cormorant Garamond', serif; --font-serif: 'Crimson Pro', serif; --font-bengali: 'Noto Serif Bengali', serif; --font-sans: 'Inter', sans-serif;
+            
+            /* UPDATED FONT STACKS FOR LINUX SERVER */
+            --font-display: 'Liberation Serif', serif; 
+            --font-serif: 'Liberation Serif', serif;
+            --font-bengali: 'Noto Sans Bengali', 'Noto Sans Bengali UI', sans-serif;
+            --font-sans: 'Liberation Sans', sans-serif;
+
             --title-xl: 72px; --title-lg: 48px; --title-md: 36px; --title-sm: 24px; --body-lg: 16px; --body-md: 14px; --body-sm: 12px; --caption: 11px; --micro: 9px;
             --space-1: 6px; --space-2: 12px; --space-3: 18px; --space-4: 24px; --space-5: 36px; --space-6: 48px;
             --safe-margin: 15mm; --shadow-soft: 0 2px 12px rgba(0,0,0,0.08); --shadow-medium: 0 4px 20px rgba(0,0,0,0.15);
@@ -32,8 +39,10 @@ html_template_str = """
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         body { font-family: var(--font-bengali); margin: 0; padding: 0; background: #2d3142; }
         
+        /* Force page breaks */
         .page { width: 210mm; height: 297mm; background: var(--paper-white); position: relative; overflow: hidden; page-break-after: always; }
-
+        
+        /* ----- FRONT COVER STYLES ----- */
         .front-cover { background: linear-gradient(165deg, var(--paper-white) 0%, var(--cream) 100%); display: flex; flex-direction: column; justify-content: space-between; border: 3mm solid var(--primary-color); outline: 2px solid var(--premium-gold); outline-offset: -10px; }
         .cover-header { padding: var(--space-5) var(--space-4) 0; text-align: center; }
         .publisher-badge { display: inline-block; background: var(--primary-color); color: var(--text-light); padding: 6px var(--space-3); font-family: var(--font-sans); font-size: var(--micro); font-weight: 700; letter-spacing: 3px; text-transform: uppercase; border-radius: 2px; }
@@ -53,6 +62,7 @@ html_template_str = """
         .translator-label { font-family: var(--font-sans); font-size: var(--micro); color: var(--accent-color); text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; display: block; margin-bottom: 6px; }
         .translator-name { font-family: var(--font-bengali); font-size: var(--body-lg); font-weight: 700; color: var(--primary-color); }
 
+        /* ----- COPYRIGHT PAGE STYLES ----- */
         .copyright-page { padding: var(--safe-margin); display: flex; flex-direction: column; font-family: var(--font-sans); font-size: var(--body-sm); line-height: 1.6; color: var(--text-secondary); }
         .copyright-header { text-align: center; padding-bottom: var(--space-3); border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: var(--space-3); }
         .copyright-title { font-family: var(--font-display); font-size: var(--title-sm); color: var(--primary-color); font-weight: 600; }
@@ -62,6 +72,7 @@ html_template_str = """
         .full-width { grid-column: 1 / -1; }
         .copyright-footer { text-align: center; padding-top: var(--space-3); border-top: 1px solid rgba(0,0,0,0.1); margin-top: var(--space-3); font-size: var(--caption); }
 
+        /* ----- INDEX PAGE STYLES ----- */
         .index-page { padding: var(--safe-margin); display: flex; flex-direction: column; }
         .index-header { text-align: center; margin-bottom: var(--space-5); position: relative; }
         .index-title { font-family: var(--font-display); font-size: var(--title-lg); font-weight: 700; color: var(--primary-color); text-transform: uppercase; letter-spacing: 3px; }
@@ -71,6 +82,7 @@ html_template_str = """
         .toc-chapter::after { content: ''; position: absolute; bottom: 8px; left: 0; right: 20px; height: 1px; background: repeating-linear-gradient(to right, var(--text-muted) 0, var(--text-muted) 3px, transparent 3px, transparent 7px); opacity: 0.3; }
         .toc-page { font-family: var(--font-display); font-size: var(--title-sm); font-weight: 700; color: var(--accent-color); text-align: right; white-space: nowrap; width: 70px; }
 
+        /* ----- BACK COVER STYLES ----- */
         .back-cover { display: flex; flex-direction: column; background: linear-gradient(165deg, var(--cream) 0%, var(--paper-white) 100%); }
         .bio-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-6) var(--space-5); text-align: center; }
         .author-photo { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid var(--premium-gold); box-shadow: var(--shadow-medium); margin-bottom: var(--space-4); }
@@ -211,11 +223,11 @@ def generate_book():
         # 1. Get Form Data
         form_data = request.form
         
-        # Build Config from Request
+        # Build Config from Request (Defaults provided for robustness)
         book_config = {
             "publisher_badge": form_data.get("publisher_badge", "THE HIDDEN SHELF CLASSICS"),
             "genre_tag": form_data.get("genre_tag", "Political Philosophy"),
-            "book_title_en": form_data.get("book_title_en", "THE<br>PRINCE"),
+            "book_title_en": form_data.get("book_title_en", "THE PRINCE"),
             "book_title_bn": form_data.get("book_title_bn", "দ্য প্রিন্স"),
             "subtitle": form_data.get("subtitle", "A Timeless Manual on Power, Politics, and Leadership"),
             "author_label": form_data.get("author_label", "Original Masterpiece By"),
@@ -255,7 +267,8 @@ def generate_book():
             img_bytes = img_file.read()
             book_config['bio_img_url'] = "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode()
         else:
-            book_config['bio_img_url'] = "https://i.pravatar.cc/300"
+            # Use a placeholder if no image is provided
+            book_config['bio_img_url'] = "https://placehold.co/300x300/e94560/ffffff?text=Author"
 
         # Generate QR Code
         book_config['qr_code'] = generate_qr_base64(book_config['group_link'])
@@ -264,7 +277,7 @@ def generate_book():
         chapter_count = int(form_data.get('chapter_count', 0))
         toc_data = []
         uploaded_pdfs = []
-        # Assume Front Cover, Copyright, and Index pages take up 3 pages total
+        # Assume Front Matter takes 3 pages initially
         current_page_counter = 4 
 
         for i in range(chapter_count):
@@ -275,7 +288,6 @@ def generate_book():
                 pdf_file = request.files[file_key]
                 title = form_data.get(title_key, f"Chapter {i+1}")
                 
-                # Use BytesIO to handle file in memory
                 pdf_bytes = io.BytesIO(pdf_file.read())
                 reader = PdfReader(pdf_bytes)
                 num_pages = len(reader.pages)
@@ -290,44 +302,48 @@ def generate_book():
 
         book_config['toc_list'] = toc_data
 
-        # 3. Render HTML Template to PDF (Front Matter)
+        # 3. Render HTML Template to PDF (Front & Back Matter)
         rendered_html = Template(html_template_str).render(**book_config)
         template_pdf_bytes = io.BytesIO()
+        # WeasyPrint generates the PDF from the rendered HTML
         HTML(string=rendered_html).write_pdf(template_pdf_bytes)
         template_reader = PdfReader(template_pdf_bytes)
+        total_template_pages = len(template_reader.pages)
 
         # 4. Merge Everything
         merger = PdfWriter()
         
         # Inject Metadata
         metadata = {
-            "/Title": book_config["book_title_en"].replace("<br>", " ") + " - " + book_config["book_title_bn"],
+            "/Title": f"{book_config['book_title_en']} - {book_config['book_title_bn']}",
             "/Author": book_config["author_name"],
-            "/Subject": book_config["subtitle"],
-            "/Creator": "The Hidden Shelf Engine"
+            "/Creator": "Ebook Assembly Studio Engine"
         }
         merger.add_metadata(metadata)
 
-        # Add Front Matter (Cover, Copyright, Index - assumed first 3 pages)
-        pages_to_add_front = min(3, len(template_reader.pages))
+        # A. Add Front Matter (Cover, Copyright, Index)
+        # We assume these are the first 3 pages of the generated template.
+        pages_to_add_front = min(3, total_template_pages)
         for i in range(pages_to_add_front):
             merger.add_page(template_reader.pages[i])
 
-        # Add Chapters with Interactive Outlines
+        # B. Add Chapters
         for item in uploaded_pdfs:
             reader = item["reader"]
             chapter_title = item["title"]
-            
-            # Feature: Clickable Index (Outline/Bookmark)
-            start_page_in_merged_pdf = len(merger.pages)
-            merger.add_outline_item(title=chapter_title, page_number=start_page_in_merged_pdf)
-
+            # Add outline item linking to the start of this chapter
+            merger.add_outline_item(title=chapter_title, page_number=len(merger.pages))
             for page in reader.pages:
                 merger.add_page(page)
 
-        # Add Back Cover (Assumed to be the 4th page of the template)
-        if len(template_reader.pages) > 3:
-            merger.add_page(template_reader.pages[3])
+        # C. Add Back Cover
+        # It should be the last page of the generated template if total pages >= 4.
+        if total_template_pages >= 4:
+            merger.add_page(template_reader.pages[total_template_pages - 1])
+        elif total_template_pages > pages_to_add_front:
+             # Fallback: if somehow it's less than 4 but more than front matter, take the last available page.
+             merger.add_page(template_reader.pages[-1])
+
 
         # 5. Return Output
         output_stream = io.BytesIO()
@@ -342,10 +358,11 @@ def generate_book():
         )
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error during generation: {e}")
+        # Return a JSON error response for debugging
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # In production/render, Gunicorn handles the running, 
-    # but this block is useful for local testing.
+    # This block is for local testing only. 
+    # On Render, Gunicorn will handle execution.
     app.run(debug=True, port=5000)
