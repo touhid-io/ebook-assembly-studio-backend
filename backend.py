@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 # --- HTML Template (CSS & Structure) ---
-# NOTE: Google Fonts link removed. Using system fonts installed via Dockerfile.
+# NOTE: Adjusted CSS to fix margin issues and layout breaks on Render (Linux).
 html_template_str = """
 <!DOCTYPE html>
 <html lang="bn">
@@ -22,78 +22,114 @@ html_template_str = """
     <meta charset="UTF-8">
     <title>Ebook Template</title>
     <style>
+        /* CRITICAL FIX: Resetting WeasyPrint default page margins to 0 */
+        @page {
+            size: A4;
+            margin: 0;
+            padding: 0;
+        }
+        
         :root {
             --primary-color: #1a1a2e; --accent-color: #e94560; --premium-gold: #d4af37; --secondary-dark: #16213e;
             --paper-white: #fffef9; --cream: #faf8f3; --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-muted: #707070; --text-light: #ffffff;
             
-            /* UPDATED FONT STACKS FOR LINUX SERVER */
+            /* Linux Server Fonts */
             --font-display: 'Liberation Serif', serif; 
             --font-serif: 'Liberation Serif', serif;
             --font-bengali: 'Noto Sans Bengali', 'Noto Sans Bengali UI', sans-serif;
             --font-sans: 'Liberation Sans', sans-serif;
 
-            --title-xl: 72px; --title-lg: 48px; --title-md: 36px; --title-sm: 24px; --body-lg: 16px; --body-md: 14px; --body-sm: 12px; --caption: 11px; --micro: 9px;
             --space-1: 6px; --space-2: 12px; --space-3: 18px; --space-4: 24px; --space-5: 36px; --space-6: 48px;
-            --safe-margin: 15mm; --shadow-soft: 0 2px 12px rgba(0,0,0,0.08); --shadow-medium: 0 4px 20px rgba(0,0,0,0.15);
+            --safe-margin: 15mm;
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        body { font-family: var(--font-bengali); margin: 0; padding: 0; background: #2d3142; }
         
-        /* Force page breaks */
-        .page { width: 210mm; height: 297mm; background: var(--paper-white); position: relative; overflow: hidden; page-break-after: always; }
+        body { 
+            font-family: var(--font-bengali); 
+            margin: 0; 
+            padding: 0; 
+            background: #2d3142; 
+        }
         
-        /* ----- FRONT COVER STYLES ----- */
-        .front-cover { background: linear-gradient(165deg, var(--paper-white) 0%, var(--cream) 100%); display: flex; flex-direction: column; justify-content: space-between; border: 3mm solid var(--primary-color); outline: 2px solid var(--premium-gold); outline-offset: -10px; }
+        /* Ensures each section takes exactly one A4 page without spillover */
+        .page { 
+            width: 210mm; 
+            height: 297mm; 
+            background: var(--paper-white); 
+            position: relative; 
+            overflow: hidden; 
+            page-break-after: always; 
+        }
+        
+        /* ----- FRONT COVER FIXES ----- */
+        .front-cover { 
+            background: linear-gradient(165deg, var(--paper-white) 0%, var(--cream) 100%); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            /* Border calculation fix */
+            border: 3mm solid var(--primary-color); 
+            outline: 2px solid var(--premium-gold); 
+            outline-offset: -10px; 
+            height: 297mm; 
+        }
+
         .cover-header { padding: var(--space-5) var(--space-4) 0; text-align: center; }
-        .publisher-badge { display: inline-block; background: var(--primary-color); color: var(--text-light); padding: 6px var(--space-3); font-family: var(--font-sans); font-size: var(--micro); font-weight: 700; letter-spacing: 3px; text-transform: uppercase; border-radius: 2px; }
-        .genre-tag { display: block; margin-top: var(--space-2); font-family: var(--font-sans); font-size: var(--caption); color: var(--accent-color); font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+        .publisher-badge { display: inline-block; background: var(--primary-color); color: var(--text-light); padding: 6px var(--space-3); font-family: var(--font-sans); font-size: 9px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; border-radius: 2px; }
+        .genre-tag { display: block; margin-top: var(--space-2); font-family: var(--font-sans); font-size: 11px; color: var(--accent-color); font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+        
         .cover-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         .decorative-icon { width: 60px; height: auto; margin-bottom: var(--space-3); opacity: 0.7; }
-        .book-title-en { font-family: var(--font-display); font-size: var(--title-xl); font-weight: 700; line-height: 0.85; color: var(--primary-color); letter-spacing: -1px; text-transform: uppercase; margin: 0; }
-        .book-title-bn { font-family: var(--font-bengali); font-size: var(--title-md); font-weight: 700; color: var(--accent-color); margin-top: var(--space-3); display: inline-block; padding: 0 var(--space-4); position: relative; }
+        
+        .book-title-en { font-family: var(--font-display); font-size: 64px; font-weight: 700; line-height: 0.9; color: var(--primary-color); letter-spacing: -1px; text-transform: uppercase; margin: 0; }
+        .book-title-bn { font-family: var(--font-bengali); font-size: 32px; font-weight: 700; color: var(--accent-color); margin-top: var(--space-3); display: inline-block; padding: 0 var(--space-4); position: relative; }
         .book-title-bn::before, .book-title-bn::after { content: ''; position: absolute; top: 50%; width: 35px; height: 2px; background: var(--accent-color); }
         .book-title-bn::before { right: 100%; margin-right: 12px; } .book-title-bn::after { left: 100%; margin-left: 12px; }
-        .subtitle { font-family: var(--font-serif); font-size: var(--body-md); color: var(--text-secondary); font-style: italic; margin-top: var(--space-2); max-width: 380px; }
+        
+        .subtitle { font-family: var(--font-serif); font-size: 14px; color: var(--text-secondary); font-style: italic; margin-top: var(--space-2); max-width: 380px; }
+        
         .author-block { margin-top: var(--space-5); }
-        .author-label { font-family: var(--font-sans); font-size: var(--caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; display: block; margin-bottom: 6px; }
-        .author-name { font-family: var(--font-display); font-size: var(--title-sm); font-weight: 600; color: var(--text-primary); }
+        .author-label { font-family: var(--font-sans); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; display: block; margin-bottom: 6px; }
+        .author-name { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: var(--text-primary); }
+        
         .cover-footer { padding: 0 var(--space-4) var(--space-5); text-align: center; }
         .translator-info { padding-top: var(--space-3); border-top: 2px solid rgba(212, 175, 55, 0.2); }
-        .translator-label { font-family: var(--font-sans); font-size: var(--micro); color: var(--accent-color); text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; display: block; margin-bottom: 6px; }
-        .translator-name { font-family: var(--font-bengali); font-size: var(--body-lg); font-weight: 700; color: var(--primary-color); }
+        .translator-label { font-family: var(--font-sans); font-size: 9px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; display: block; margin-bottom: 6px; }
+        .translator-name { font-family: var(--font-bengali); font-size: 16px; font-weight: 700; color: var(--primary-color); }
 
         /* ----- COPYRIGHT PAGE STYLES ----- */
-        .copyright-page { padding: var(--safe-margin); display: flex; flex-direction: column; font-family: var(--font-sans); font-size: var(--body-sm); line-height: 1.6; color: var(--text-secondary); }
+        .copyright-page { padding: var(--safe-margin); display: flex; flex-direction: column; font-family: var(--font-sans); font-size: 12px; line-height: 1.6; color: var(--text-secondary); height: 297mm; }
         .copyright-header { text-align: center; padding-bottom: var(--space-3); border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: var(--space-3); }
-        .copyright-title { font-family: var(--font-display); font-size: var(--title-sm); color: var(--primary-color); font-weight: 600; }
+        .copyright-title { font-family: var(--font-display); font-size: 24px; color: var(--primary-color); font-weight: 600; }
         .copyright-main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
-        .copyright-section h3 { font-family: var(--font-sans); font-size: var(--caption); font-weight: 700; color: var(--primary-color); text-transform: uppercase; margin-bottom: 6px; }
+        .copyright-section h3 { font-family: var(--font-sans); font-size: 11px; font-weight: 700; color: var(--primary-color); text-transform: uppercase; margin-bottom: 6px; }
         .isbn-block { background: var(--cream); padding: var(--space-2); border-left: 3px solid var(--accent-color); margin-top: 5px; }
         .full-width { grid-column: 1 / -1; }
-        .copyright-footer { text-align: center; padding-top: var(--space-3); border-top: 1px solid rgba(0,0,0,0.1); margin-top: var(--space-3); font-size: var(--caption); }
+        .copyright-footer { text-align: center; padding-top: var(--space-3); border-top: 1px solid rgba(0,0,0,0.1); margin-top: var(--space-3); font-size: 11px; }
 
         /* ----- INDEX PAGE STYLES ----- */
-        .index-page { padding: var(--safe-margin); display: flex; flex-direction: column; }
+        .index-page { padding: var(--safe-margin); display: flex; flex-direction: column; height: 297mm; }
         .index-header { text-align: center; margin-bottom: var(--space-5); position: relative; }
-        .index-title { font-family: var(--font-display); font-size: var(--title-lg); font-weight: 700; color: var(--primary-color); text-transform: uppercase; letter-spacing: 3px; }
-        .index-subtitle { font-family: var(--font-sans); font-size: var(--body-sm); color: var(--accent-color); text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
+        .index-title { font-family: var(--font-display); font-size: 48px; font-weight: 700; color: var(--primary-color); text-transform: uppercase; letter-spacing: 3px; }
+        .index-subtitle { font-family: var(--font-sans); font-size: 12px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
         .toc-table { width: 100%; border-collapse: separate; border-spacing: 0 var(--space-2); }
-        .toc-chapter { font-family: var(--font-bengali); font-size: var(--body-md); font-weight: 600; color: var(--text-primary); padding: var(--space-2) 0; position: relative; }
+        .toc-chapter { font-family: var(--font-bengali); font-size: 14px; font-weight: 600; color: var(--text-primary); padding: var(--space-2) 0; position: relative; }
         .toc-chapter::after { content: ''; position: absolute; bottom: 8px; left: 0; right: 20px; height: 1px; background: repeating-linear-gradient(to right, var(--text-muted) 0, var(--text-muted) 3px, transparent 3px, transparent 7px); opacity: 0.3; }
-        .toc-page { font-family: var(--font-display); font-size: var(--title-sm); font-weight: 700; color: var(--accent-color); text-align: right; white-space: nowrap; width: 70px; }
+        .toc-page { font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--accent-color); text-align: right; white-space: nowrap; width: 70px; }
 
         /* ----- BACK COVER STYLES ----- */
-        .back-cover { display: flex; flex-direction: column; background: linear-gradient(165deg, var(--cream) 0%, var(--paper-white) 100%); }
+        .back-cover { display: flex; flex-direction: column; background: linear-gradient(165deg, var(--cream) 0%, var(--paper-white) 100%); height: 297mm; }
         .bio-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-6) var(--space-5); text-align: center; }
         .author-photo { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid var(--premium-gold); box-shadow: var(--shadow-medium); margin-bottom: var(--space-4); }
-        .bio-name { font-family: var(--font-display); font-size: var(--title-sm); font-weight: 700; color: var(--primary-color); margin-bottom: 6px; text-transform: uppercase; }
-        .bio-title-tag { font-family: var(--font-sans); font-size: var(--caption); color: var(--accent-color); text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; margin-bottom: var(--space-3); display: block; }
-        .bio-description { font-family: var(--font-bengali); font-size: var(--body-md); line-height: 1.7; color: var(--text-secondary); max-width: 420px; margin: 0 auto; }
+        .bio-name { font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--primary-color); margin-bottom: 6px; text-transform: uppercase; }
+        .bio-title-tag { font-family: var(--font-sans); font-size: 11px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; margin-bottom: var(--space-3); display: block; }
+        .bio-description { font-family: var(--font-bengali); font-size: 14px; line-height: 1.7; color: var(--text-secondary); max-width: 420px; margin: 0 auto; }
         .cta-section { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-dark) 100%); padding: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); position: relative; }
         .cta-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent-color) 0%, var(--premium-gold) 50%, var(--accent-color) 100%); }
         .cta-content { flex: 1; max-width: 65%; }
-        .cta-headline { font-family: var(--font-display); font-size: var(--title-sm); font-weight: 700; color: var(--text-light); margin-bottom: var(--space-2); }
-        .cta-text { font-family: var(--font-bengali); font-size: var(--body-md); color: rgba(255,255,255,0.85); line-height: 1.6; }
+        .cta-headline { font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--text-light); margin-bottom: var(--space-2); }
+        .cta-text { font-family: var(--font-bengali); font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.6; }
         .qr-container { background: white; padding: 10px; border-radius: 8px; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--premium-gold); }
         .qr-container img { width: 100%; height: 100%; border-radius: 4px; }
     </style>
@@ -223,7 +259,7 @@ def generate_book():
         # 1. Get Form Data
         form_data = request.form
         
-        # Build Config from Request (Defaults provided for robustness)
+        # Build Config from Request
         book_config = {
             "publisher_badge": form_data.get("publisher_badge", "THE HIDDEN SHELF CLASSICS"),
             "genre_tag": form_data.get("genre_tag", "Political Philosophy"),
@@ -267,7 +303,6 @@ def generate_book():
             img_bytes = img_file.read()
             book_config['bio_img_url'] = "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode()
         else:
-            # Use a placeholder if no image is provided
             book_config['bio_img_url'] = "https://placehold.co/300x300/e94560/ffffff?text=Author"
 
         # Generate QR Code
@@ -277,7 +312,7 @@ def generate_book():
         chapter_count = int(form_data.get('chapter_count', 0))
         toc_data = []
         uploaded_pdfs = []
-        # Assume Front Matter takes 3 pages initially
+        # Index usually starts after Cover (1) + Copyright (1) + TOC (1) = Page 4
         current_page_counter = 4 
 
         for i in range(chapter_count):
@@ -302,10 +337,9 @@ def generate_book():
 
         book_config['toc_list'] = toc_data
 
-        # 3. Render HTML Template to PDF (Front & Back Matter)
+        # 3. Render HTML to PDF
         rendered_html = Template(html_template_str).render(**book_config)
         template_pdf_bytes = io.BytesIO()
-        # WeasyPrint generates the PDF from the rendered HTML
         HTML(string=rendered_html).write_pdf(template_pdf_bytes)
         template_reader = PdfReader(template_pdf_bytes)
         total_template_pages = len(template_reader.pages)
@@ -313,7 +347,6 @@ def generate_book():
         # 4. Merge Everything
         merger = PdfWriter()
         
-        # Inject Metadata
         metadata = {
             "/Title": f"{book_config['book_title_en']} - {book_config['book_title_bn']}",
             "/Author": book_config["author_name"],
@@ -321,29 +354,29 @@ def generate_book():
         }
         merger.add_metadata(metadata)
 
-        # A. Add Front Matter (Cover, Copyright, Index)
-        # We assume these are the first 3 pages of the generated template.
+        # Add Front Matter (Front Cover, Copyright, Index)
+        # We assume they are the first 3 pages.
+        # Since we fixed CSS margins, each section should take exactly 1 page.
         pages_to_add_front = min(3, total_template_pages)
         for i in range(pages_to_add_front):
             merger.add_page(template_reader.pages[i])
 
-        # B. Add Chapters
+        # Add Chapters
         for item in uploaded_pdfs:
             reader = item["reader"]
             chapter_title = item["title"]
-            # Add outline item linking to the start of this chapter
             merger.add_outline_item(title=chapter_title, page_number=len(merger.pages))
             for page in reader.pages:
                 merger.add_page(page)
 
-        # C. Add Back Cover
-        # It should be the last page of the generated template if total pages >= 4.
+        # Add Back Cover
+        # If CSS is correct, the template should have 4 pages (Cover, Copy, Index, Back).
+        # We want the LAST page of the generated template as the back cover.
         if total_template_pages >= 4:
             merger.add_page(template_reader.pages[total_template_pages - 1])
         elif total_template_pages > pages_to_add_front:
-             # Fallback: if somehow it's less than 4 but more than front matter, take the last available page.
+             # Fallback: if somehow it's less than 4 but more than front matter
              merger.add_page(template_reader.pages[-1])
-
 
         # 5. Return Output
         output_stream = io.BytesIO()
@@ -359,10 +392,7 @@ def generate_book():
 
     except Exception as e:
         print(f"Error during generation: {e}")
-        # Return a JSON error response for debugging
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # This block is for local testing only. 
-    # On Render, Gunicorn will handle execution.
     app.run(debug=True, port=5000)
