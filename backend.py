@@ -11,7 +11,7 @@ from pypdf import PdfWriter, PdfReader
 app = Flask(__name__)
 CORS(app)
 
-# --- HTML Template (Table Layout for Stability) ---
+# --- HTML Template (Updated for WeasyPrint Stability) ---
 html_template_str = """
 <!DOCTYPE html>
 <html lang="bn">
@@ -39,6 +39,7 @@ html_template_str = """
         .page { 
             width: 210mm; height: 297mm; background: var(--paper-white); 
             position: relative; overflow: hidden; page-break-after: always; 
+            box-sizing: border-box;
         }
 
         /* --- FRONT COVER --- */
@@ -57,15 +58,21 @@ html_template_str = """
         .book-title-en { font-family: var(--font-display); font-size: 64px; font-weight: 700; line-height: 1; color: var(--primary-color); margin: 0; text-transform: uppercase; }
         .book-title-bn { font-family: var(--font-bengali); font-size: 32px; font-weight: 700; color: var(--accent-color); margin-top: 20px; }
         
-        /* --- COPYRIGHT PAGE (TABLE LAYOUT FIX) --- */
-        .copyright-page { padding: 15mm; display: flex; flex-direction: column; height: 297mm; }
+        /* --- COPYRIGHT PAGE (FIXED LAYOUT) --- */
+        /* Flexbox removed to prevent breaking in WeasyPrint */
+        .copyright-page { 
+            padding: 15mm; 
+            display: block; 
+            height: 297mm; 
+            position: relative; 
+        }
         
         .copyright-header { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
         .copyright-title { font-size: 24px; font-weight: 700; color: var(--primary-color); }
         
-        /* Table Styles - The Nuclear Solution for Layout */
+        /* Fixed Layout Table */
         .cp-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-        .cp-table td { vertical-align: top; padding: 10px; width: 50%; }
+        .cp-table td { vertical-align: top; padding: 10px; width: 50%; word-wrap: break-word; }
         
         .cp-section h3 { 
             font-family: var(--font-sans); font-size: 11px; font-weight: 700; 
@@ -79,7 +86,18 @@ html_template_str = """
             margin-top: 20px; text-align: center; border: 1px solid #eee;
         }
         
-        .cp-footer { margin-top: auto; text-align: center; font-size: 10px; border-top: 1px solid #ddd; padding-top: 20px; }
+        /* Absolute positioning for footer to keep it at bottom */
+        .cp-footer { 
+            position: absolute; 
+            bottom: 20mm; 
+            left: 0; 
+            right: 0;
+            text-align: center; 
+            font-size: 10px; 
+            border-top: 1px solid #ddd; 
+            padding-top: 20px; 
+            width: 100%;
+        }
 
         /* --- INDEX PAGE --- */
         .index-page { padding: 15mm; height: 297mm; }
@@ -305,10 +323,12 @@ def generate_book():
         }
         merger.add_metadata(metadata)
 
+        # Add Front Pages (Cover, Copyright, Index)
         pages_to_add_front = min(3, total_template_pages)
         for i in range(pages_to_add_front):
             merger.add_page(template_reader.pages[i])
 
+        # Add Chapters
         for item in uploaded_pdfs:
             reader = item["reader"]
             chapter_title = item["title"]
@@ -316,6 +336,7 @@ def generate_book():
             for page in reader.pages:
                 merger.add_page(page)
 
+        # Add Back Cover
         if total_template_pages >= 4:
             merger.add_page(template_reader.pages[total_template_pages - 1])
         elif total_template_pages > pages_to_add_front:
