@@ -11,7 +11,7 @@ from pypdf import PdfWriter, PdfReader
 app = Flask(__name__)
 CORS(app)
 
-# --- HTML Template (Updated for WeasyPrint Stability) ---
+# --- HTML Template ---
 html_template_str = """
 <!DOCTYPE html>
 <html lang="bn">
@@ -19,7 +19,6 @@ html_template_str = """
     <meta charset="UTF-8">
     <title>Ebook Template</title>
     <style>
-        /* Global Reset */
         @page { size: A4; margin: 0; padding: 0; }
         html, body { margin: 0; padding: 0; width: 210mm; height: 297mm; background-color: #2d3142; }
         
@@ -27,19 +26,19 @@ html_template_str = """
             --primary-color: #1a1a2e; --accent-color: #e94560; --premium-gold: #d4af37;
             --paper-white: #fffef9; --cream: #faf8f3; --text-primary: #1a1a1a; --text-secondary: #4a4a4a;
             
-            /* Linux Server Fonts (Render Compatible) */
+            /* Linux Compatible Font Stack */
             --font-display: 'Liberation Serif', serif;
             --font-bengali: 'Noto Sans Bengali', 'Lohit Bengali', 'Mukti Narrow', 'Siyam Rupali', sans-serif;
             --font-sans: 'Liberation Sans', sans-serif;
+            
+            --space-3: 18px; --space-4: 24px; --space-5: 36px;
         }
 
         body { font-family: var(--font-bengali); }
         
-        /* Page Container */
         .page { 
             width: 210mm; height: 297mm; background: var(--paper-white); 
             position: relative; overflow: hidden; page-break-after: always; 
-            box-sizing: border-box;
         }
 
         /* --- FRONT COVER --- */
@@ -50,54 +49,27 @@ html_template_str = """
             outline: 2px solid var(--premium-gold); outline-offset: -10px; 
             height: 297mm; 
         }
-        .cover-header { text-align: center; padding-top: 40px; }
-        .cover-footer { text-align: center; padding-bottom: 40px; }
+        .cover-header, .cover-footer { text-align: center; padding-top: var(--space-5); padding-bottom: var(--space-5); }
         .cover-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         
         .publisher-badge { background: var(--primary-color); color: #fff; padding: 6px 12px; font-size: 9px; font-weight: 700; letter-spacing: 3px; border-radius: 2px; }
         .book-title-en { font-family: var(--font-display); font-size: 64px; font-weight: 700; line-height: 1; color: var(--primary-color); margin: 0; text-transform: uppercase; }
         .book-title-bn { font-family: var(--font-bengali); font-size: 32px; font-weight: 700; color: var(--accent-color); margin-top: 20px; }
-        
-        /* --- COPYRIGHT PAGE (FIXED LAYOUT) --- */
-        /* Flexbox removed to prevent breaking in WeasyPrint */
-        .copyright-page { 
-            padding: 15mm; 
-            display: block; 
-            height: 297mm; 
-            position: relative; 
-        }
-        
+        .author-name { font-size: 24px; font-weight: 600; color: var(--text-primary); margin-top: 10px; }
+
+        /* --- COPYRIGHT PAGE (Table Layout Fix) --- */
+        .copyright-page { padding: 15mm; display: flex; flex-direction: column; height: 297mm; }
         .copyright-header { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
         .copyright-title { font-size: 24px; font-weight: 700; color: var(--primary-color); }
         
-        /* Fixed Layout Table */
-        .cp-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-        .cp-table td { vertical-align: top; padding: 10px; width: 50%; word-wrap: break-word; }
-        
-        .cp-section h3 { 
-            font-family: var(--font-sans); font-size: 11px; font-weight: 700; 
-            color: var(--primary-color); text-transform: uppercase; margin-bottom: 8px; 
-            border-left: 3px solid var(--accent-color); padding-left: 8px; 
-        }
+        /* Using Table for Layout Safety */
+        .cp-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .cp-table td { vertical-align: top; padding: 10px; width: 50%; }
+        .cp-section h3 { font-family: var(--font-sans); font-size: 11px; font-weight: 700; color: var(--primary-color); text-transform: uppercase; margin-bottom: 8px; border-left: 3px solid var(--accent-color); padding-left: 8px; }
         .cp-section p { font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 4px; }
         
-        .isbn-box { 
-            background: var(--cream); padding: 15px; border-radius: 4px; 
-            margin-top: 20px; text-align: center; border: 1px solid #eee;
-        }
-        
-        /* Absolute positioning for footer to keep it at bottom */
-        .cp-footer { 
-            position: absolute; 
-            bottom: 20mm; 
-            left: 0; 
-            right: 0;
-            text-align: center; 
-            font-size: 10px; 
-            border-top: 1px solid #ddd; 
-            padding-top: 20px; 
-            width: 100%;
-        }
+        .isbn-box { background: var(--cream); padding: 15px; border-radius: 4px; margin-top: 20px; text-align: center; }
+        .cp-footer { margin-top: auto; text-align: center; font-size: 10px; border-top: 1px solid #ddd; padding-top: 20px; }
 
         /* --- INDEX PAGE --- */
         .index-page { padding: 15mm; height: 297mm; }
@@ -129,7 +101,7 @@ html_template_str = """
             <p style="font-style:italic; margin-top:10px; color:var(--text-secondary);">{{ subtitle }}</p>
             <div style="margin-top:40px;">
                 <span style="font-size:10px; text-transform:uppercase; letter-spacing:1px;">{{ author_label }}</span>
-                <div style="font-size:24px; font-weight:600; color:var(--text-primary); margin-top:10px;">{{ author_name }}</div>
+                <div class="author-name">{{ author_name }}</div>
             </div>
         </div>
         <div class="cover-footer">
@@ -182,16 +154,13 @@ html_template_str = """
             </tr>
             <tr>
                 <td colspan="2" style="text-align:center; padding-top:30px;">
-                     <div class="cp-section" style="border:none; padding:0;">
-                        <h3>Copyright Notice</h3>
-                        <p>{{ cp_copyright_text }}</p>
-                     </div>
+                     <p style="font-size:11px; color:var(--text-muted);">{{ cp_copyright_text }}</p>
                 </td>
             </tr>
         </table>
 
         <div class="cp-footer">
-            Designed & Published in Bangladesh
+            Designed & Published by The Hidden Shelf Engine
         </div>
     </div>
 
@@ -323,12 +292,10 @@ def generate_book():
         }
         merger.add_metadata(metadata)
 
-        # Add Front Pages (Cover, Copyright, Index)
         pages_to_add_front = min(3, total_template_pages)
         for i in range(pages_to_add_front):
             merger.add_page(template_reader.pages[i])
 
-        # Add Chapters
         for item in uploaded_pdfs:
             reader = item["reader"]
             chapter_title = item["title"]
@@ -336,7 +303,6 @@ def generate_book():
             for page in reader.pages:
                 merger.add_page(page)
 
-        # Add Back Cover
         if total_template_pages >= 4:
             merger.add_page(template_reader.pages[total_template_pages - 1])
         elif total_template_pages > pages_to_add_front:
